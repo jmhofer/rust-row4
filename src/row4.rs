@@ -2,6 +2,7 @@ use std::fmt;
 
 pub type Column = u8;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Color {
     Red,
     Blue
@@ -31,21 +32,29 @@ impl Board {
         1u64 << (height * 8 + column)
     }
 
+    pub fn switch_color(color: Color) -> Color {
+        if color == Color::Red { Color::Blue } else { Color::Red }
+    }
+
+    pub fn play_moves(&mut self, mut color: Color, moves: Vec<Column>) {
+        for column in moves {
+            self.play_move(color, column);
+            color = Board::switch_color(color);
+        }
+    }
+
     /// play a move in the specified column
     /// does not check if the column is legal - this has to be done beforehand!
-    pub fn play_move(&self, color: Color, column: Column) -> Board {
+    pub fn play_move(&mut self, color: Color, column: Column) {
         let height = self.height(column);
         let mask = Board::position_mask(column, height);
 
-        let mut updated = self.clone();
-        updated.column_heights[column as usize] = height + 1;
+        self.column_heights[column as usize] = height + 1;
 
         match color {
-            Color::Red => updated.red = updated.red | mask,
-            Color::Blue => updated.blue = updated.blue | mask
+            Color::Red => self.red = self.red | mask,
+            Color::Blue => self.blue = self.blue | mask
         };
-
-        updated
     }
 
     /// computes all currently available moves for this board
@@ -68,20 +77,23 @@ impl Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, dest: &mut fmt::Formatter) -> fmt::Result {
+        let mut board = Vec::<String>::new();
         for row in 0..6u8 {
+            let mut row_string = String::new();
             for column in 0..7u8 {
                 let mask = Board::position_mask(column, 5 - row);
                 if self.red & mask != 0 {
-                    write!(dest, "x ")?;
+                    row_string.push('x');
                 } else if self.blue & mask != 0 {
-                    write!(dest, "o ")?;
+                    row_string.push('o');
                 } else {
-                    write!(dest, ". ")?;
+                    row_string.push('.');
                 }
+                row_string.push(' ');
             }
-            write!(dest, "\n")?
+            board.push(row_string);
         }
-        Ok(())
+        write!(dest, "{}", board.join("\n").as_str())
     }
 }
 
@@ -106,12 +118,21 @@ fn test_moves() {
 
 #[test]
 fn test_play_move() {
-    let board = Board { red: 8, blue: 0, column_heights: [0, 0, 0, 1, 0, 0, 0] };
-    let updated = board
-        .play_move(Color::Red, 3)
-        .play_move(Color::Blue, 1);
+    let mut board = Board { red: 8, blue: 0, column_heights: [0, 0, 0, 1, 0, 0, 0] };
+    board.play_move(Color::Red, 3);
+    board.play_move(Color::Blue, 1);
 
-    assert_eq!(updated.blue, 2);
-    assert_eq!(updated.red, 2056);
-    assert_eq!(updated.column_heights, [0, 1, 0, 2, 0, 0, 0]);
+    assert_eq!(board.blue, 2);
+    assert_eq!(board.red, 2056);
+    assert_eq!(board.column_heights, [0, 1, 0, 2, 0, 0, 0]);
+}
+
+#[test]
+fn test_play_moves() {
+    let mut board = Board { red: 8, blue: 0, column_heights: [0, 0, 0, 1, 0, 0, 0] };
+    board.play_moves(Color::Blue, vec!(3, 1));
+
+    assert_eq!(board.blue, 2048);
+    assert_eq!(board.red, 10);
+    assert_eq!(board.column_heights, [0, 1, 0, 2, 0, 0, 0]);
 }

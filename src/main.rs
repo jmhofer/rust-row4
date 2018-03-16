@@ -6,14 +6,17 @@ use row4::Color;
 fn main() {
     let mut board = Board::new();
     println!("{:?}", board.moves());
-    println!("{}{:?}", board, board);
+    println!("{}\n{:?}", board, board);
 
-    board = board.play_move(Color::Red, 3);
-    println!("{}{:?}", board, board);
+    board.play_move(Color::Red, 3);
+    println!("{}\n{:?}", board, board);
 
-    board = board.play_move(Color::Blue, 3);
-    println!("{}{:?}", board, board);
+    board.play_move(Color::Blue, 3);
+    println!("{}\n{:?}", board, board);
 
-    board = board.play_move(Color::Red, 4);
-    println!("{}{:?}", board, board);
+    board.play_move(Color::Red, 4);
+    println!("{}\n{:?}", board, board);
+
+    board.play_moves(Color::Blue, vec!(5, 3, 3));
+    println!("{}\n{:?}", board, board);
 }
