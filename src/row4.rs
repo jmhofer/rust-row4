@@ -8,7 +8,11 @@ pub enum Color {
     Blue
 }
 
-pub const COLUMNS: [Column; 7] = [3, 2, 4, 1, 5, 0, 6];
+const COLUMNS: [Column; 7] = [3, 2, 4, 1, 5, 0, 6];
+
+lazy_static! {
+    static ref WIN_MASKS: Vec<u64> = Board::compute_win_masks();
+}
 
 /// A simple row4 board. Each color is represented as a bit array.
 ///
@@ -16,9 +20,9 @@ pub const COLUMNS: [Column; 7] = [3, 2, 4, 1, 5, 0, 6];
 /// bits 0..6 of the second byte as the second-lowest row, and so on.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Board {
-    red: u64,
-    blue: u64,
-    column_heights: [Column; 7]
+    pub red: u64,
+    pub blue: u64,
+    pub column_heights: [Column; 7]
 }
 
 impl Board {
@@ -34,6 +38,44 @@ impl Board {
 
     pub fn switch_color(color: Color) -> Color {
         if color == Color::Red { Color::Blue } else { Color::Red }
+    }
+
+    pub fn compute_win_masks() -> Vec<u64> {
+        let mut masks = Vec::new();
+        // vertical row4s
+        for col in 0..7u8 {
+            for row in 0..3u8 {
+                let mut mask = 0u64;
+                for idx in 0..4u8 {
+                    mask |= Board::position_mask(col, row + idx);
+                }
+                masks.push(mask);
+            }
+        }
+        // horizontal row4s
+        for row in 0..6u8 {
+            for col in 0..4u8 {
+                let mut mask = 0u64;
+                for idx in 0..4u8 {
+                    mask |= Board::position_mask(col + idx, row);
+                }
+                masks.push(mask);
+            }
+        }
+        // diagonal row4s
+        for row in 0..3u8 {
+            for col in 0..4u8 {
+                let mut mask_left = 0u64;
+                let mut mask_right = 0u64;
+                for idx in 0..4u8 {
+                    mask_left |= Board::position_mask(col + idx, row + idx);
+                    mask_right |= Board::position_mask(col + 3 - idx, row + idx);
+                }
+                masks.push(mask_left);
+                masks.push(mask_right);
+            }
+        }
+        masks
     }
 
     pub fn play_moves(&mut self, mut color: Color, moves: Vec<Column>) {
@@ -72,6 +114,25 @@ impl Board {
     /// returns the height of the specified column
     pub fn height(&self, column: Column) -> u8 {
         self.column_heights[column as usize]
+    }
+
+    /// checks if one of the players has won
+    pub fn has_won(&self) -> Option<Color> {
+        for &mask in WIN_MASKS.iter() {
+            if self.red & mask == mask {
+                return Some(Color::Red);
+            }
+            if self.blue & mask == mask {
+                return Some(Color::Blue);
+            }
+        }
+        None
+    }
+
+    pub fn reset(&mut self) {
+        self.red = 0;
+        self.blue = 0;
+        self.column_heights = [0; 7];
     }
 }
 
@@ -135,4 +196,19 @@ fn test_play_moves() {
     assert_eq!(board.blue, 2048);
     assert_eq!(board.red, 10);
     assert_eq!(board.column_heights, [0, 1, 0, 2, 0, 0, 0]);
+}
+
+#[test]
+fn test_has_won() {
+    let mut board = Board::new();
+    board.play_moves(Color::Red, vec!(4, 3, 4, 3, 4, 3, 4));
+    assert_eq!(board.has_won(), Some(Color::Red));
+
+    board.reset();
+    board.play_moves(Color::Blue, vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 2, 2));
+    assert_eq!(board.has_won(), Some(Color::Blue));
+
+    board.reset();
+    board.play_moves(Color::Blue, vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 1, 2, 2));
+    assert_eq!(board.has_won(), None);
 }

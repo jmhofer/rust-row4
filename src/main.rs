@@ -1,5 +1,8 @@
 pub mod row4;
 
+#[macro_use]
+extern crate lazy_static;
+
 use row4::Board;
 use row4::Color;
 
