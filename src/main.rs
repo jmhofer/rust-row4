@@ -6,9 +6,8 @@ extern crate rand;
 
 use std::io;
 
-use row4::Column;
+use row4::*;
 use row4::board::Board;
-use row4::board::Color;
 
 fn main() {
     let mut board = Board::new();
@@ -20,7 +19,7 @@ fn main() {
         // AI move
         {
             let (column, win_rate, games_played) =
-                board.choose_monte_carlo(ai_color, ai_color, allowance);
+                monte_carlo::choose_next_move(&board, ai_color, ai_color, allowance);
             board.play_move(ai_color, column, true);
             println!("ai move: {}, win rate: {} ({})\n{}\n", column + 1, win_rate, games_played, board);
         }

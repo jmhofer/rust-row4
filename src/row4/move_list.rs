@@ -1,5 +1,4 @@
-use row4::Column;
-use row4::COLUMNS;
+use row4::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct MoveList {
@@ -26,10 +25,6 @@ impl MoveList {
 
     pub fn len(&self) -> u8 {
         self.len
-    }
-
-    pub fn at(&self, index: usize) -> u8 {
-        self.moves[index].unwrap()
     }
 
     pub fn moves(&self) -> Vec<Column> {

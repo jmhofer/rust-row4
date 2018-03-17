@@ -1,17 +1,7 @@
-use rand::{thread_rng, Rng};
 use std::fmt;
-use std::time::SystemTime;
 
-use row4::Column;
-use row4::COLUMNS;
-
+use row4::*;
 use row4::move_list::MoveList;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Color {
-    Red,
-    Blue
-}
 
 lazy_static! {
     static ref WIN_MASKS: Vec<u64> = Board::compute_win_masks();
@@ -43,15 +33,11 @@ impl Board {
     }
 
     /// utility to complete a bit mask from a given position
-    pub fn position_mask(column: Column, height: u8) -> u64 {
+    fn position_mask(column: Column, height: u8) -> u64 {
         1u64 << (height * 8 + column)
     }
 
-    pub fn switch_color(color: Color) -> Color {
-        if color == Color::Red { Color::Blue } else { Color::Red }
-    }
-
-    pub fn compute_win_masks() -> Vec<u64> {
+    fn compute_win_masks() -> Vec<u64> {
         let mut masks = Vec::new();
         // vertical row4s
         for col in 0..7u8 {
@@ -89,95 +75,11 @@ impl Board {
         masks
     }
 
-    pub fn choose_monte_carlo(&self, own_color: Color, color_to_move: Color, millis: u32) -> (Column, f64, u32) {
-        let mut max: (Option<Column>, f64) = (None, -1.0);
-        let mut total = 0u32;
-
-        let useful_moves = self.useful_moves(color_to_move);
-        let num_moves = useful_moves.len();
-
-        for column in useful_moves {
-            let mut sim = self.clone();
-            sim.play_move(color_to_move, column, false);
-            let (wins, computed) = sim.evaluate_monte_carlo(own_color, Board::switch_color(color_to_move), millis / num_moves as u32);
-            total += computed;
-            if wins > max.1 {
-                max = (Some(column), wins)
-            }
-        }
-        (max.0.unwrap(), max.1, total)
-    }
-
-    pub fn evaluate_monte_carlo(&self, own_color: Color, color_to_move: Color, millis: u32) -> (f64, u32) {
-        fn millis_since(start: SystemTime) -> u32 {
-            let elapsed = SystemTime::now().duration_since(start).unwrap();
-            elapsed.as_secs() as u32 * 1_000 + elapsed.subsec_nanos() / 1_000_000
-        }
-
-        let start = SystemTime::now();
-
-        let mut wins = 0u32;
-        let mut losses = 0u32;
-        let mut draws = 0u32;
-
-        while millis_since(start) < millis {
-            let mut sim = self.clone();
-            match sim.play_random_game(color_to_move.clone()) {
-                (_, Some(color)) if color == own_color => wins += 1,
-                (_, Some(_)) => losses += 1,
-                (_, None) => draws += 1
-            }
-        }
-
-        let total = wins + losses + draws;
-        (wins as f64 / total as f64, total)
-    }
-
-    pub fn play_random_game(&mut self, mut color_to_move: Color) -> (Vec<Column>, Option<Color>) {
-        let mut protocol = Vec::new();
-        loop {
-            let moves = self.useful_moves(color_to_move);
-            match thread_rng().choose(&moves) {
-                None => return (protocol, None),
-                Some(&column) => {
-                    protocol.push(column);
-                    self.play_move(color_to_move, column, true);
-                    if self.winner.is_some() {
-                        return (protocol, self.winner);
-                    }
-                }
-            }
-            color_to_move = Board::switch_color(color_to_move);
-        }
-    }
-
-    /// restrict full movelist to only moves that win, or do not lose immediately
-    pub fn useful_moves(&self, color_to_move: Color) -> Vec<Column> {
-        // check if we have won with any of the moves
-        for column in self.moves.moves() {
-            let mut sim = self.clone();
-            sim.play_move(color_to_move, column, false);
-            if sim.winner.is_some() {
-                return vec!(column);
-            }
-        }
-
-        // check if the opponent would win with any of the moves
-        for column in self.moves.moves() {
-            let mut sim = self.clone();
-            sim.play_move(Board::switch_color(color_to_move), column, false);
-            if sim.winner.is_some() {
-                return vec!(column);
-            }
-        }
-
-        self.moves.moves()
-    }
-
+    /// play a series of moves
     pub fn play_moves(&mut self, mut color: Color, moves: &[Column]) {
         for &column in moves {
             self.play_move(color, column, true);
-            color = Board::switch_color(color);
+            color = color.switch();
         }
     }
 
@@ -195,13 +97,13 @@ impl Board {
         };
 
         if gen_next_moves {
-            self.moves = MoveList::from(&self.moves());
+            self.moves = MoveList::from(&self.compute_moves());
         }
-        self.winner = self.has_won();
+        self.winner = self.compute_winner();
     }
 
     /// computes all currently available moves for this board
-    pub fn moves(&self) -> Vec<Column> {
+    fn compute_moves(&self) -> Vec<Column> {
         let mut moves = Vec::new();
         for i in 0..7usize {
             let column = COLUMNS[i];
@@ -218,7 +120,7 @@ impl Board {
     }
 
     /// checks if one of the players has won
-    pub fn has_won(&self) -> Option<Color> {
+    fn compute_winner(&self) -> Option<Color> { // TODO this has lots of optimization potential
         for &mask in WIN_MASKS.iter() {
             if self.red & mask == mask {
                 return Some(Color::Red);
@@ -230,6 +132,7 @@ impl Board {
         None
     }
 
+    /// reset the board to an empty one
     pub fn reset(&mut self) {
         self.red = 0;
         self.blue = 0;
@@ -277,7 +180,7 @@ fn test_height() {
 #[test]
 fn test_moves() {
     let board = Board { red: 0, blue: 0, column_heights: [0, 6, 5, 3, 1, 6, 0], moves: MoveList::full(), winner: None };
-    assert_eq!(board.moves(), vec!(3, 2, 4, 0, 6));
+    assert_eq!(board.compute_moves(), vec!(3, 2, 4, 0, 6));
 }
 
 #[test]
@@ -322,25 +225,3 @@ fn test_winner() {
     board.play_moves(Color::Blue, &vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 1, 2, 2));
     assert_eq!(board.winner, None);
 }
-
-#[test]
-fn test_useful_moves_win() {
-    let mut board = Board::new();
-    board.play_moves(Color::Red, &vec!(4, 3, 4, 3, 4, 3));
-    assert_eq!(board.useful_moves(Color::Red), vec!(4));
-}
-
-#[test]
-fn test_useful_moves_avoid_losing() {
-    let mut board = Board::new();
-    board.play_moves(Color::Red, &vec!(4, 3, 4, 3, 4));
-    assert_eq!(board.useful_moves(Color::Blue), vec!(4));
-}
-
-#[test]
-fn test_useful_moves_normal() {
-    let mut board = Board::new();
-    board.play_moves(Color::Red, &vec!(4, 3, 4, 3, 5, 2));
-    assert_eq!(board.useful_moves(Color::Red), COLUMNS.to_vec());
-}
-
