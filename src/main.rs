@@ -10,6 +10,10 @@ use row4::*;
 use row4::board::Board;
 
 fn main() {
+    play_game();
+}
+
+fn play_game() {
     let mut board = Board::new();
     let ai_color = Color::Red;
     let player_color = Color::Blue;
@@ -18,10 +22,15 @@ fn main() {
     while board.winner.is_none() {
         // AI move
         {
-            let (column, win_rate, games_played) =
-                monte_carlo::choose_next_move(&board, ai_color, ai_color, allowance);
-            board.play_move(ai_color, column, true);
-            println!("ai move: {}, win rate: {} ({})\n{}\n", column + 1, win_rate, games_played, board);
+            let (variant, eval, num_moves) =
+                row4::minmax::minmax(&board, ai_color, ai_color, 3, monte_carlo::evaluate);
+
+            board.play_move(ai_color, *variant.last().unwrap(), true);
+            let mut print_variant = variant.clone();
+            print_variant.reverse();
+            print_variant = print_variant.iter().map(|&c| c + 1 ).collect();
+
+            println!("ai moves: {:?}, win rate: {} ({})\n{}\n", print_variant, eval, num_moves, board);
         }
 
         if board.winner.is_some() {
