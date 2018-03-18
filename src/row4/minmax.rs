@@ -17,18 +17,18 @@ pub fn iterative_minmax(board: &Board, own_color: Color, millis: u64, cache: &mu
 
     let timer = Timer::new();
 
-    while elapsed < millis && main_variant.len() >= depth as usize {
+    while elapsed < millis * 1_000 && main_variant.len() >= depth as usize {
         depth += 1;
         let (updated_main_variant, eval, moves_played, positions) =
             minmax(board, own_color, depth, &main_variant, -1.0, 2.0, cache, evaluate);
-        elapsed = timer.elapsed_millis();
+        elapsed = timer.elapsed_micros();
         main_variant = updated_main_variant;
         current_eval = eval;
         current_moves_played += moves_played;
         current_positions += positions;
 
         let (moves_per_second, positions_per_second) = if elapsed != 0 {
-            ((current_moves_played * 1_000) / elapsed, (current_positions * 1_000) / elapsed)
+            ((current_moves_played * 1_000_000) / elapsed, (current_positions * 1_000_000) / elapsed)
         } else {
             (0, 0)
         };

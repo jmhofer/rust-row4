@@ -23,7 +23,7 @@ fn play_game() {
         // AI move
         {
             let (variant, eval, num_moves, num_positions) =
-                row4::minmax::iterative_minmax(&board, ai_color, 5_000, &mut cache, monte_carlo::evaluate);
+                row4::minmax::iterative_minmax(&board, ai_color, 5_000, &mut cache, monte_carlo::evaluate_in_parallel);
 
             board.play_move(*variant.last().unwrap(), true);
             let mut print_variant = variant.clone();
