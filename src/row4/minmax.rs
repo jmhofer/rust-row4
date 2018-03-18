@@ -7,6 +7,8 @@ use row4::time::Timer;
 
 type Evaluate = fn(&Board, Color, u32) -> (f64, u64);
 
+const GAMES_PER_EVALUATION: u32 = 40;
+
 pub fn iterative_minmax(board: &Board, own_color: Color, millis: u64, cache: &mut BoardCache, evaluate: Evaluate) -> (Vec<Column>, f64, u64, u64) {
     let mut depth = 0;
     let mut main_variant = vec!();
@@ -52,7 +54,7 @@ pub fn minmax(board: &Board, own_color: Color, depth: u8, main_variant: &[Column
         let (result, moves_played) = match cache.get(board) {
             Some(&eval) => (eval, 0),
             None => {
-                let (eval, moves_played) = evaluate(board, own_color, 50);
+                let (eval, moves_played) = evaluate(board, own_color, GAMES_PER_EVALUATION);
                 cache.store(board, eval);
                 (eval, moves_played)
             }
