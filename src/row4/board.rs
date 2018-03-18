@@ -16,8 +16,9 @@ pub struct Board {
     pub red: u64,
     pub blue: u64,
     pub column_heights: [Column; 7],
+    pub color_to_move: Color,
     pub moves: MoveList,
-    pub winner: Option<Color>
+    pub winner: Option<Color>,
 }
 
 impl Board {
@@ -27,6 +28,7 @@ impl Board {
             red: 0,
             blue: 0,
             column_heights: [0; 7],
+            color_to_move: Color::Red,
             moves: MoveList::full(),
             winner: None
         }
@@ -76,22 +78,21 @@ impl Board {
     }
 
     /// play a series of moves
-    pub fn play_moves(&mut self, mut color: Color, moves: &[Column]) {
+    pub fn play_moves(&mut self, moves: &[Column]) {
         for &column in moves {
-            self.play_move(color, column, true);
-            color = color.switch();
+            self.play_move(column, true);
         }
     }
 
     /// play a move in the specified column
     /// does not check if the column is legal - this has to be done beforehand!
-    pub fn play_move(&mut self, color: Color, column: Column, gen_next_moves: bool) {
+    pub fn play_move(&mut self, column: Column, gen_next_moves: bool) {
         let height = self.height(column);
         let mask = Board::position_mask(column, height);
 
         self.column_heights[column as usize] = height + 1;
 
-        match color {
+        match self.color_to_move {
             Color::Red => self.red = self.red | mask,
             Color::Blue => self.blue = self.blue | mask
         };
@@ -99,6 +100,7 @@ impl Board {
         if gen_next_moves {
             self.moves = MoveList::from(&self.compute_moves());
         }
+        self.color_to_move = self.color_to_move.switch();
         self.winner = self.compute_winner();
     }
 
@@ -137,6 +139,7 @@ impl Board {
         self.red = 0;
         self.blue = 0;
         self.column_heights = [0; 7];
+        self.color_to_move = Color::Red;
         self.moves = MoveList::full();
         self.winner = None;
     }
@@ -167,11 +170,12 @@ impl fmt::Display for Board {
 #[test]
 fn test_position_mask() {
     assert_eq!(Board::position_mask(3, 1), 2048);
+    assert_eq!(Board::position_mask(6, 5), 1 << (8 * 5 + 6));
 }
 
 #[test]
 fn test_height() {
-    let board = Board { red: 0, blue: 0, column_heights: [0, 6, 5, 3, 1, 6, 0], moves: MoveList::full(), winner: None };
+    let board = Board { red: 0, blue: 0, column_heights: [0, 6, 5, 3, 1, 6, 0], color_to_move: Color::Red, moves: MoveList::full(), winner: None };
     assert_eq!(board.height(0), 0);
     assert_eq!(board.height(1), 6);
     assert_eq!(board.height(3), 3);
@@ -179,7 +183,7 @@ fn test_height() {
 
 #[test]
 fn test_moves() {
-    let board = Board { red: 0, blue: 0, column_heights: [0, 6, 5, 3, 1, 6, 0], moves: MoveList::full(), winner: None };
+    let board = Board { red: 0, blue: 0, column_heights: [0, 6, 5, 3, 1, 6, 0], color_to_move: Color::Red, moves: MoveList::full(), winner: None };
     assert_eq!(board.compute_moves(), vec!(3, 2, 4, 0, 6));
 }
 
@@ -189,8 +193,11 @@ fn test_play_move() {
     board.red = 8;
     board.column_heights = [0, 0, 0, 1, 0, 0, 0];
 
-    board.play_move(Color::Red, 3, false);
-    board.play_move(Color::Blue, 1, false);
+    board.play_move(3, false);
+    assert_eq!(board.color_to_move, Color::Blue);
+
+    board.play_move(1, false);
+    assert_eq!(board.color_to_move, Color::Red);
 
     assert_eq!(board.blue, 2);
     assert_eq!(board.red, 2056);
@@ -202,9 +209,11 @@ fn test_play_moves() {
     let mut board = Board::new();
     board.red = 8;
     board.column_heights = [0, 0, 0, 1, 0, 0, 0];
+    board.color_to_move = Color::Blue;
 
-    board.play_moves(Color::Blue, &vec!(3, 1));
+    board.play_moves(&vec!(3, 1));
 
+    assert_eq!(board.color_to_move, Color::Blue);
     assert_eq!(board.blue, 2048);
     assert_eq!(board.red, 10);
     assert_eq!(board.column_heights, [0, 1, 0, 2, 0, 0, 0]);
@@ -214,14 +223,16 @@ fn test_play_moves() {
 #[test]
 fn test_winner() {
     let mut board = Board::new();
-    board.play_moves(Color::Red, &vec!(4, 3, 4, 3, 4, 3, 4));
+    board.play_moves(&vec!(4, 3, 4, 3, 4, 3, 4));
     assert_eq!(board.winner, Some(Color::Red));
 
     board.reset();
-    board.play_moves(Color::Blue, &vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 2, 2));
+    board.color_to_move = Color::Blue;
+    board.play_moves(&vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 2, 2));
     assert_eq!(board.winner, Some(Color::Blue));
 
     board.reset();
-    board.play_moves(Color::Blue, &vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 1, 2, 2));
+    board.color_to_move = Color::Blue;
+    board.play_moves(&vec!(3, 4, 4, 3, 3, 4, 4, 3, 1, 1, 2, 2));
     assert_eq!(board.winner, None);
 }
