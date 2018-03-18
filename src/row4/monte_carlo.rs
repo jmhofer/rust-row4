@@ -2,21 +2,19 @@ use row4::*;
 use row4::board::Board;
 
 use rand::{thread_rng, Rng};
-use std::time::SystemTime;
 
 /// choose the best next move, evaluating all next moves using monte carlo simulations
 /// this is just a temporary variant of the simplest possible minmax search
-pub fn choose_next_move(board: &Board, own_color: Color, color_to_move: Color, millis: u32) -> (Column, f64, u64) {
+pub fn choose_next_move(board: &Board, own_color: Color, color_to_move: Color, num_games: u32) -> (Column, f64, u64) {
     let mut max: (Option<Column>, f64) = (None, -1.0);
     let mut total = 0u64;
 
     let useful_moves = useful_moves(board, color_to_move);
-    let num_moves = useful_moves.len();
 
     for column in useful_moves {
         let mut sim = board.clone();
         sim.play_move(color_to_move, column, false);
-        let (wins, computed) = evaluate(&sim, own_color, color_to_move.switch(), millis / num_moves as u32);
+        let (wins, computed) = evaluate(&sim, own_color, color_to_move.switch(), num_games);
         total += computed;
         if wins > max.1 {
             max = (Some(column), wins)
@@ -26,31 +24,22 @@ pub fn choose_next_move(board: &Board, own_color: Color, color_to_move: Color, m
 }
 
 /// evaluate the current position, using monte carlo simulation
-pub fn evaluate(board: &Board, own_color: Color, color_to_move: Color, millis: u32) -> (f64, u64) {
-    fn millis_since(start: SystemTime) -> u32 {
-        let elapsed = SystemTime::now().duration_since(start).unwrap();
-        elapsed.as_secs() as u32 * 1_000 + elapsed.subsec_nanos() / 1_000_000
-    }
-
-    let start = SystemTime::now();
-
+pub fn evaluate(board: &Board, own_color: Color, color_to_move: Color, num_games: u32) -> (f64, u64) {
     let mut wins = 0u32;
-    let mut losses = 0u32;
-    let mut draws = 0u32;
     let mut moves = 0u64;
+    let mut total = 0u32;
 
-    while millis_since(start) < millis {
+    while total < num_games {
         let mut sim = board.clone();
         let (variant, result) = play_random_game(&mut sim, color_to_move.clone());
         match result {
             Some(color) if color == own_color => wins += 1,
-            Some(_) => losses += 1,
-            None => draws += 1
+            _ => ()
         }
+        total += 1;
         moves += variant.len() as u64;
     }
 
-    let total = wins + losses + draws;
     (wins as f64 / total as f64, moves)
 }
 

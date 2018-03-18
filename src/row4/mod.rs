@@ -2,6 +2,7 @@ pub mod board;
 pub mod move_list;
 pub mod monte_carlo;
 pub mod minmax;
+pub mod time;
 
 pub type Column = u8;
 
