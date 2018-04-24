@@ -14,14 +14,17 @@ impl BoardCache {
         }
     }
 
-    pub fn store(&mut self, board: &Board, eval: f64) {
+    pub fn store(&mut self, board: &Board, eval: f64, store_mirrors: bool) {
         self.cache.insert((board.red, board.blue), eval);
-        self.cache.insert((board.blue, board.red), 1.0 - eval); // switched colors, pessimistic eval approximation (due to draws)
 
-        let mirrored_red = BoardCache::mirror(board.red);
-        let mirrored_blue = BoardCache::mirror(board.blue);
-        self.cache.insert((mirrored_red, mirrored_blue), eval);
-        self.cache.insert((mirrored_blue, mirrored_red), 1.0 - eval);
+        if store_mirrors {
+            self.cache.insert((board.blue, board.red), 1.0 - eval); // switched colors, pessimistic eval approximation (due to draws)
+
+            let mirrored_red = BoardCache::mirror(board.red);
+            let mirrored_blue = BoardCache::mirror(board.blue);
+            self.cache.insert((mirrored_red, mirrored_blue), eval);
+            self.cache.insert((mirrored_blue, mirrored_red), 1.0 - eval);
+        }
     }
 
     pub fn get(&self, board: &Board) -> Option<&f64> {
